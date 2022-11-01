@@ -133,7 +133,7 @@ public class MainActivity extends AppCompatActivity {
                             DatabaseReference OUT_record_ID = student.child("outing_records").child(count);
                             String DateNow = new Date().toString();
                             OUT_record_ID.setValue("current_status:OutSide");
-
+                            //hiii
 
                             Toast.makeText(context, "sucess sent to DB",Toast.LENGTH_SHORT).show();
                             outing_records.child(count).child("OUT").setValue(DateNow);
