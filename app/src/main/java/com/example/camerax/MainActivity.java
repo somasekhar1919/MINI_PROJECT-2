@@ -3,188 +3,209 @@ package com.example.camerax;
 
 import static android.content.ContentValues.TAG;
 
-import android.content.Context;
+import android.Manifest;
+import android.annotation.SuppressLint;
+import android.content.pm.PackageManager;
+import android.graphics.Point;
+import android.graphics.Rect;
+import android.media.AudioManager;
+import android.media.Image;
+import android.media.ToneGenerator;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
-import android.widget.Button;
+import android.util.Size;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageAnalysis;
+import androidx.camera.core.ImageProxy;
+import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
-import androidx.fragment.app.Fragment;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
 
-import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
+import com.google.mlkit.vision.barcode.BarcodeScanner;
+import com.google.mlkit.vision.barcode.BarcodeScannerOptions;
+import com.google.mlkit.vision.barcode.BarcodeScanning;
+import com.google.mlkit.vision.barcode.common.Barcode;
+import com.google.mlkit.vision.common.InputImage;
 
-import java.util.Date;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-public class MainActivity extends AppCompatActivity {
-    private ListenableFuture<ProcessCameraProvider> CameraProviderFuture;
+public class MainActivity extends AppCompatActivity{
+    private ListenableFuture <ProcessCameraProvider> CameraProviderFuture;
     private PreviewView PreviewView;
     private ExecutorService CameraService;
-    TextView Name, RollNumber, Branch, Degree;
+    private TextView Name,RollNumber,Branch,Degree;
+    private QRimageanalysis qrimageanalysis = new QRimageanalysis();
 
 
-    private Button scan_button,outing_button,food_button;
-    private FirebaseDatabase database = FirebaseDatabase.getInstance("https://camerax-d6467-default-rtdb.firebaseio.com/");
-
-    private DatabaseReference myRootRef = database.getReference();
-
-
-
-    public MainActivity(){
-        super(R.layout.activity_main);
-    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
-
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        scan_button = findViewById(R.id.scan_button);
-        outing_button = findViewById(R.id.outing_button);
-        food_button = findViewById(R.id.food_button);
+        Name = findViewById(R.id.Name);
         RollNumber = findViewById(R.id.RollNumber);
+        Branch = findViewById(R.id.Branch);
+        Degree = findViewById(R.id.Degree);
+
+        PreviewView = findViewById(R.id.ScanPreview);
+        this.getWindow().setFlags(1024,1024);
 
 
 
+        CameraService = Executors.newSingleThreadExecutor();
+        CameraProviderFuture = ProcessCameraProvider.getInstance(this);
+        CameraProviderFuture.addListener(() ->{
+            try {
+                if (ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA)!= (PackageManager.PERMISSION_GRANTED)){
+                    ActivityCompat.requestPermissions(MainActivity.this,new String[]{Manifest.permission.CAMERA},101);
 
-
-        scan_button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                CallBottomsheet(new BottomSheet());
-
+                }else {
+                ProcessCameraProvider Cameraprovider = CameraProviderFuture.get();
+                startCameraX(Cameraprovider);
+                }
+            } catch (ExecutionException | InterruptedException e) {
+                e.printStackTrace();
             }
-        });
-
-
-
-
-
-
-        String currentDateTimeString = java.text.DateFormat.getDateTimeInstance().format(new Date());
-
-        outing_button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-
-                DatabaseReference students = myRootRef.child("Students");
-                DatabaseReference student = students.child(RollNumber.getText().toString());
-                DatabaseReference outing_records = myRootRef.child("records");
-                student.child("outing_records").orderByKey().limitToLast(1).get().addOnCompleteListener(new OnCompleteListener<DataSnapshot>() {
-                    @Override
-                    public void onComplete(@NonNull Task<DataSnapshot> task) {
-                        String check = task.getResult().getValue().toString();
-                        Log.d(TAG, "checkforpending: ");
-                        if(check.substring(check.length()-8,check.length()-1).equals("OutSide")){
-
-                            outing_records.get().addOnCompleteListener(new OnCompleteListener<DataSnapshot>() {
-                                @Override
-                                public void onComplete(@NonNull Task<DataSnapshot> task) {
-                                    if (!task.isSuccessful()) {
-                                        Log.e("firebase1", "Error getting data", task.getException());
-                                    }
-                                    else {
-
-                                        String count= String.valueOf(check.substring(1));
-                                        Context context = getApplicationContext();
-                                        DatabaseReference OUT_record_ID = student.child("outing_records").child(count);
-                                        String DateNow = new Date().toString();
-                                        OUT_record_ID.setValue("current_status:OutSide");
-
-
-                                        Toast.makeText(context, "sucess sent to DB",Toast.LENGTH_SHORT).show();
-                                        outing_records.child(count).child("OUT").setValue(DateNow);
-                                        finish();
-                                    }
-                                }
-                            });
-
-
-                        }
-
-                    }
-                });
-
-
-
-
-                outing_records.get().addOnCompleteListener(new OnCompleteListener<DataSnapshot>() {
-                    @Override
-                    public void onComplete(@NonNull Task<DataSnapshot> task) {
-                        if (!task.isSuccessful()) {
-                            Log.e("firebase1", "Error getting data", task.getException());
-                        }
-                        else {
-
-                            String count = String.valueOf(task.getResult().getChildrenCount()+1);
-                            Context context = getApplicationContext();
-                            DatabaseReference OUT_record_ID = student.child("outing_records").child(count);
-                            String DateNow = new Date().toString();
-                            OUT_record_ID.setValue("current_status:OutSide");
-
-
-                            Toast.makeText(context, "sucess sent to DB",Toast.LENGTH_SHORT).show();
-                            outing_records.child(count).child("OUT").setValue(DateNow);
-                            finish();
-                        }
-                    }
-                });
-
-
-
-
-
-
-
-
-
-
-
-            }
-        });
-        food_button.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-
-            }
-        });
-
+        },getExecuter());
     }
 
-    private void CallBottomsheet(BottomSheet bottomSheet) {
-        getSupportFragmentManager().beginTransaction()
-                .setReorderingAllowed(true)
-                .replace(R.id.fragment_container_view,BottomSheet.class, null)
-//                .addToBackStack(null)
-                .commit();
-        scan_button.setVisibility(View.GONE);
-
+    private Executor getExecuter() {
+        return ContextCompat.getMainExecutor(this);
     }
-
     @Override
-    public void onBackPressed() {
-        Fragment fragment = getSupportFragmentManager().findFragmentById(R.id.fragment_container_view);
-        if(fragment!=null) {
-            getSupportFragmentManager().beginTransaction()
-                    .remove(fragment)
-                    .commit();
-            scan_button.setVisibility(View.VISIBLE);
-
-        }else{
-                super.onBackPressed();
-
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 101 && grantResults.length > 0) {
+            ProcessCameraProvider Cameraprovider = null;
+            try {
+                Cameraprovider = CameraProviderFuture.get();
+            } catch (ExecutionException | InterruptedException e) {
+                e.printStackTrace();
             }
+            assert Cameraprovider != null;
+            startCameraX(Cameraprovider);
         }
-}
+    }
+
+    @SuppressLint("RestrictedApi")
+    private void startCameraX(ProcessCameraProvider cameraprovider) {
+        cameraprovider.unbindAll();
+
+        //Cameraselecter use case
+        CameraSelector cameraSelector = new CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build();
+
+        //Preview usecase
+        Preview preview = new Preview.Builder().build();
+        preview.setSurfaceProvider(PreviewView.getSurfaceProvider());
+
+
+//imageAnalysis usecase
+        ImageAnalysis imageanalysis = new ImageAnalysis.Builder()
+                .setTargetResolution(new Size(320,720))
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_BLOCK_PRODUCER).build();
+
+        imageanalysis.setAnalyzer(getExecuter(),qrimageanalysis);
+
+
+
+        cameraprovider.bindToLifecycle(this, cameraSelector, preview,imageanalysis);
+    }
+
+    public class QRimageanalysis implements ImageAnalysis.Analyzer{
+
+        @Override
+        public void analyze(@NonNull ImageProxy image) {
+
+           ScanImageForBarcodes(image);
+
+
+        }
+
+        private void ScanImageForBarcodes(ImageProxy image) {
+            @SuppressLint("UnsafeOptInUsageError")
+            Image image1 = image.getImage();
+            if(image1 != null) {
+                InputImage inputImage = InputImage.fromMediaImage(image1, image.getImageInfo().getRotationDegrees());
+
+                BarcodeScannerOptions options =
+                        new BarcodeScannerOptions.Builder()
+                                .setBarcodeFormats(
+                                        Barcode.FORMAT_QR_CODE)     // for all formats
+                                .build();
+
+                BarcodeScanner scanner = BarcodeScanning.getClient(options);
+
+                Task<List<Barcode>> result = scanner.process(inputImage);
+                    result.addOnSuccessListener(this::readerbarcode)                      // if image scanned smoothly
+                            .addOnFailureListener(e -> Log.d(TAG, "onFailure: scan failed"))
+                            .addOnCompleteListener(task -> image.close());
+            }
+
+        }
+
+        private void readerbarcode(List<Barcode> barcodes) {
+
+            for (Barcode barcode: barcodes) {
+
+                Rect bounds = barcode.getBoundingBox();
+                Point[] corners = barcode.getCornerPoints();
+
+
+                String[] rawValue = new String[0];
+                try {
+                    rawValue = barcode.getRawValue().split(",");
+                    Log.d(TAG, "readerbarcode: " + rawValue);
+
+                    Log.d(TAG, "9010: " + rawValue);
+                    Name.setText(rawValue[0]);
+                    RollNumber.setText(rawValue[3]);
+                    Branch.setText(rawValue[2]);
+                    Degree.setText(rawValue[1]);
+                    ToneGenerator toneGen1 = new ToneGenerator(AudioManager.STREAM_MUSIC, 100);
+                    toneGen1.startTone(ToneGenerator.TONE_CDMA_PIP, 150);
+                    CallBottomsheet(new BottomSheet());
+
+//                FirebaseDatabase database = FirebaseDatabase.getInstance();
+//                DatabaseReference myRef = database.getReferenceFromUrl("https://camerax-d6467-default-rtdb.firebaseio.com/");
+//                DatabaseReference table = myRef.child("Records");
+//                String currentDateTimeString = java.text.DateFormat.getDateTimeInstance().format(new Date());
+//
+//                table.child(rawValue[3] + "/" + currentDateTimeString).setValue("IN");
+//                try {
+//                    Thread.sleep(1000);
+//                } catch (InterruptedException e) {
+//                    e.printStackTrace();
+//                }
+
+            }catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+
+        }
+
+        private void CallBottomsheet(BottomSheet bottomSheet) {
+            FragmentManager fragmentManager = getSupportFragmentManager();
+            FragmentTransaction fragmentTransaction = fragmentManager.beginTransaction();
+            fragmentTransaction.replace(R.id.ScanPreview,bottomSheet);
+            fragmentTransaction.commit();
+        }
+        }
+
+    }
+
