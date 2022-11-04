@@ -183,6 +183,7 @@ public class BottomSheet extends BottomSheetDialogFragment {
 
                     ToneGenerator toneGen1 = new ToneGenerator(AudioManager.STREAM_MUSIC, 100);
                     toneGen1.startTone(ToneGenerator.TONE_CDMA_PIP, 150);
+
                     TextView Name = getActivity().findViewById(R.id.Name);
                     TextView RollNumber = getActivity().findViewById(R.id.RollNumber);
                     TextView Branch = getActivity().findViewById(R.id.Branch);
@@ -195,7 +196,6 @@ public class BottomSheet extends BottomSheetDialogFragment {
                     RollNumber.setText(rawValue[3]);
                     Branch.setText(rawValue[2]);
                     Degree.setText(rawValue[1]);
-
                     LinearLayout Action = getActivity().findViewById(R.id.action);
                     Button outing_button = getActivity().findViewById(R.id.outing_button);
 
@@ -217,6 +217,9 @@ public class BottomSheet extends BottomSheetDialogFragment {
 
 
                     Action.setVisibility(View.VISIBLE);
+
+
+
                     getActivity().getSupportFragmentManager().beginTransaction().remove(BottomSheet.this).commit();
 
                     break;
